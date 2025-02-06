@@ -36,7 +36,6 @@ import {
 	ApplicationError,
 	createDeferredPromise,
 	NodeConnectionType,
-	NodeExecutionOutput,
 	NodeHelpers,
 	Workflow,
 } from 'n8n-workflow';
@@ -243,18 +242,6 @@ describe('WorkflowExecute', () => {
 				expect(result.data.executionData!.nodeExecutionStack).toEqual([]);
 			});
 		}
-	});
-
-	test('WorkflowExecute, NodeExecutionOutput type test', () => {
-		//TODO Add more tests here when execution hints are added to some node types
-		const nodeExecutionOutput = new NodeExecutionOutput(
-			[[{ json: { data: 123 } }]],
-			[{ message: 'TEXT HINT' }],
-		);
-
-		expect(nodeExecutionOutput).toBeInstanceOf(NodeExecutionOutput);
-		expect(nodeExecutionOutput[0][0].json.data).toEqual(123);
-		expect(nodeExecutionOutput.getHints()[0].message).toEqual('TEXT HINT');
 	});
 
 	describe('runPartialWorkflow2', () => {

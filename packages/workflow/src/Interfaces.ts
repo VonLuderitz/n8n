@@ -14,7 +14,7 @@ import type { URLSearchParams } from 'url';
 
 import type { CODE_EXECUTION_MODES, CODE_LANGUAGES, LOG_LEVELS } from './Constants';
 import type { IDeferredPromise } from './DeferredPromise';
-import { ApplicationError, type ExecutionCancelledError } from './errors';
+import type { ExecutionCancelledError } from './errors';
 import type { ExpressionError } from './errors/expression.error';
 import type { NodeApiError } from './errors/node-api.error';
 import type { NodeOperationError } from './errors/node-operation.error';
@@ -419,7 +419,8 @@ export interface IGetExecuteTriggerFunctions {
 }
 
 export interface IRunNodeResponse {
-	data: INodeExecutionData[][] | NodeExecutionOutput | null | undefined;
+	data: INodeExecutionData[][] | null | undefined;
+	hints?: NodeExecutionHint[];
 	closeFunction?: CloseFunction;
 }
 
@@ -938,6 +939,8 @@ export type IExecuteFunctions = ExecuteFunctions.GetNodeParameterFn &
 			data: INodeExecutionData[][] | ExecutionError,
 			metadata?: ITaskMetadata,
 		): void;
+
+		addExecutionHints(...hints: NodeExecutionHint[]): void;
 
 		nodeHelpers: NodeHelperFunctions;
 		helpers: RequestHelperFunctions &
@@ -1577,28 +1580,6 @@ export interface SupplyData {
 	metadata?: IDataObject;
 	response: unknown;
 	closeFunction?: CloseFunction;
-}
-
-export class NodeExecutionOutput extends Array<INodeExecutionData[]> {
-	constructor(data: INodeExecutionData[][], hints: NodeExecutionHint[] = []) {
-		super();
-		// TODO: This is a temporary solution for NODE-1740, until we move away from extending native Array class
-		Object.defineProperty(data, 'getHints', {
-			value: () => hints,
-			enumerable: false,
-			writable: false,
-			configurable: false,
-		});
-		return data as NodeExecutionOutput;
-	}
-
-	static [Symbol.hasInstance](instance: unknown) {
-		return Array.isArray(instance) && 'getHints' in instance;
-	}
-
-	getHints(): NodeExecutionHint[] {
-		throw new ApplicationError('This should not have been called');
-	}
 }
 
 export interface INodeType {
