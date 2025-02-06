@@ -16,6 +16,7 @@ import type {
 	SupplyData,
 	INodeParameterResourceLocator,
 	ExecuteWorkflowData,
+	JsonObject,
 } from 'n8n-workflow';
 
 import { logWrapper } from '@utils/logWrapper';
@@ -34,6 +35,12 @@ function objectToString(obj: Record<string, string> | IDataObject, level = 0) {
 		}
 	}
 	return result;
+}
+
+function responseHasMetadata(
+	response: JsonObject | undefined,
+): response is { executionId: string; workflowId: string } {
+	return ['executionId', 'workflowId'].every((x) => response?.hasOwnProperty(x));
 }
 
 export class RetrieverWorkflow implements INodeType {
@@ -404,9 +411,24 @@ export class RetrieverWorkflow implements INodeType {
 						},
 					);
 				} catch (error) {
+					const errorOptions: any | undefined = responseHasMetadata(error?.errorResponse)
+						? {
+								metadata: {
+									subExecution: {
+										executionId: error.errorResponse.executionId,
+										workflowId: error.errorResponse.workflowId,
+									},
+								},
+							}
+						: undefined;
+
 					// Make sure a valid error gets returned that can by json-serialized else it will
 					// not show up in the frontend
-					throw new NodeOperationError(this.executeFunctions.getNode(), error as Error);
+					throw new NodeOperationError(
+						this.executeFunctions.getNode(),
+						error as Error,
+						errorOptions,
+					);
 				}
 
 				const receivedItems = receivedData.data?.[0] ?? [];

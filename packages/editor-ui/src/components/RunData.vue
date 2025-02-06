@@ -13,6 +13,7 @@ import {
 	type NodeError,
 	type NodeHint,
 	type Workflow,
+	JsonObject,
 	TRIMMED_TASK_DATA_CONNECTIONS_KEY,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeHelpers } from 'n8n-workflow';
@@ -305,6 +306,11 @@ const workflowRunErrorAsNodeError = computed(() => {
 		return null;
 	}
 
+	console.log(
+		'workflowRunErrorAsNodeError',
+		workflowRunData.value?.[node.value?.name]?.[props.runIndex]?.error,
+	);
+
 	// If the node is a sub-node, we need to get the parent node error to check for input errors
 	if (isSubNodeType.value && props.paneType === 'input') {
 		const parentNode = props.workflow.getChildNodes(node.value?.name ?? '', 'ALL_NON_MAIN')[0];
@@ -529,17 +535,47 @@ const pinButtonDisabled = computed(
 		readOnlyEnv.value,
 );
 
+function responseHasMetadata(
+	response: JsonObject | undefined,
+): response is { executionId: string; workflowId: string } {
+	return ['executionId', 'workflowId'].every((x) => response?.hasOwnProperty(x));
+}
+
 const activeTaskMetadata = computed((): ITaskMetadata | null => {
 	if (!node.value) {
 		return null;
+	}
+	console.log(
+		'activeTaskMetaData',
+		workflowRunData.value?.[node.value.name]?.[props.runIndex]?.metadata,
+	);
+
+	if (responseHasMetadata(workflowRunErrorAsNodeError.value?.errorResponse)) {
+		return {
+			subExecutionsCount: 1,
+			subExecution: {
+				executionId: workflowRunErrorAsNodeError.value.errorResponse.executionId,
+				workflowId: workflowRunErrorAsNodeError.value.errorResponse.workflowId,
+			},
+		};
 	}
 
 	return workflowRunData.value?.[node.value.name]?.[props.runIndex]?.metadata ?? null;
 });
 
-const hasReleatedExectuion = computed((): boolean => {
+const getRelatedErrorExecution = computed(() => {
+	if (!hasRunError.value || !workflowRunErrorAsNodeError.value?.errorResponse) {
+		return undefined;
+	}
+	console.log('getRelatedErrorExecution', workflowRunErrorAsNodeError.value?.errorResponse);
+	return String(workflowRunErrorAsNodeError.value?.errorResponse);
+});
+
+const hasRelatedExecution = computed(() => {
 	return Boolean(
-		activeTaskMetadata.value?.subExecution || activeTaskMetadata.value?.parentExecution,
+		activeTaskMetadata.value?.subExecution ||
+			activeTaskMetadata.value?.parentExecution ||
+			getRelatedErrorExecution,
 	);
 });
 
@@ -653,6 +689,7 @@ onMounted(() => {
 
 	if (hasRunError.value && node.value) {
 		const error = workflowRunData.value?.[node.value.name]?.[props.runIndex]?.error;
+		console.log('error', error);
 		const errorsToTrack = ['unknown error'];
 
 		if (error && errorsToTrack.some((e) => error.message?.toLowerCase().includes(e))) {
@@ -1306,6 +1343,13 @@ function getExecutionLinkLabel(task: ITaskMetadata): string | undefined {
 		}
 	}
 
+	console.log('inferred', getRelatedErrorExecution.value);
+	if (getRelatedErrorExecution.value) {
+		return i18n.baseText('runData.openSubExecutionSingle', {
+			interpolate: { id: getRelatedErrorExecution.value },
+		});
+	}
+
 	return;
 }
 
@@ -1483,7 +1527,7 @@ defineExpose({ enterEditMode });
 
 			<a
 				v-if="
-					activeTaskMetadata && hasReleatedExectuion && !(paneType === 'input' && hasInputOverwrite)
+					activeTaskMetadata && hasRelatedExecution && !(paneType === 'input' && hasInputOverwrite)
 				"
 				:class="$style.relatedExecutionInfo"
 				data-test-id="related-execution-link"
@@ -1573,7 +1617,7 @@ defineExpose({ enterEditMode });
 
 			<a
 				v-if="
-					activeTaskMetadata && hasReleatedExectuion && !(paneType === 'input' && hasInputOverwrite)
+					activeTaskMetadata && hasRelatedExecution && !(paneType === 'input' && hasInputOverwrite)
 				"
 				:class="$style.relatedExecutionInfo"
 				data-test-id="related-execution-link"
