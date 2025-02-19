@@ -133,7 +133,7 @@ export class PrometheusMetricsService {
 
 		const activityGauge = new promClient.Gauge({
 			name: this.prefix + 'last_activity',
-			help: 'last user activity (backend call).',
+			help: 'last instance activity (backend request).',
 			labelNames: ['timestamp'],
 		});
 
